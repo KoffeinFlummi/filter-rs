@@ -3,7 +3,7 @@ Provides statics related utility functions used in other parts of the library.
 */
 use core::ops::{Add, Mul};
 
-use num_traits::Float;
+use num_traits::float::Float;
 
 /// Represents a gaussian distribution with mean and variance..
 #[derive(Debug)]

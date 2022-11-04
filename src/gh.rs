@@ -3,7 +3,7 @@ Provides implementations of and related to the g-h and g-h-k filter.
 */
 
 use num_traits::float::FloatCore;
-use num_traits::Float;
+use num_traits::float::Float;
 
 /// A g-h filter.
 ///
@@ -227,8 +227,8 @@ impl<T: FloatCore> GHKFilter<T> {
         let k = self.k;
         let gh2 = two * g + h;
 
-        ((g * k * (gh2 - four) + h * (g * gh2 + two * h))
-            / (two * k - (g * (h + k) * (gh2 - four))))
+        (g * k * (gh2 - four) + h * (g * gh2 + two * h))
+            / (two * k - (g * (h + k) * (gh2 - four)))
     }
 
     /// Returns the Variance Reduction Factor (VRF) of the state variable

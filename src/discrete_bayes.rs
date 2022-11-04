@@ -2,7 +2,7 @@
 Provides implementations of and related to Discrete Bayes filtering.
 */
 use alloc::vec::Vec;
-use num_traits::Float;
+use num_traits::float::Float;
 
 use crate::common::vec::{convolve, ConvolutionMode};
 use crate::common::vec::{shift, ShiftMode};

@@ -5,7 +5,7 @@ Provides utility functions used in other parts of the library.
 #[cfg(feature = "alloc")]
 pub(crate) mod vec {
     use alloc::vec::Vec;
-    use num_traits::Float;
+    use num_traits::float::Float;
 
     /// Determines how the convolution is computed. This mostly affects behaviour at the boundaries.
     #[derive(Debug)]

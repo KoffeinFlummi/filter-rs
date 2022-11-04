@@ -4,7 +4,7 @@ This module implements the linear Kalman filter
 
 use nalgebra::allocator::Allocator;
 use nalgebra::base::dimension::DimName;
-use nalgebra::{DefaultAllocator, MatrixMN, RealField, VectorN};
+use nalgebra::{DefaultAllocator, OMatrix, RealField, OVector};
 
 /// Implements a Kalman filter.
 /// For a detailed explanation, see the excellent book Kalman and Bayesian
@@ -35,37 +35,37 @@ pub struct KalmanFilter<F, DimX, DimZ, DimU>
         + Allocator<F, DimX, DimU>,
 {
     /// Current state estimate.
-    pub x: VectorN<F, DimX>,
+    pub x: OVector<F, DimX>,
     /// Current state covariance matrix.
-    pub P: MatrixMN<F, DimX, DimX>,
+    pub P: OMatrix<F, DimX, DimX>,
     /// Prior (predicted) state estimate.
-    pub x_prior: VectorN<F, DimX>,
+    pub x_prior: OVector<F, DimX>,
     /// Prior (predicted) state covariance matrix.
-    pub P_prior: MatrixMN<F, DimX, DimX>,
+    pub P_prior: OMatrix<F, DimX, DimX>,
     /// Posterior (updated) state estimate.
-    pub x_post: VectorN<F, DimX>,
+    pub x_post: OVector<F, DimX>,
     ///Posterior (updated) state covariance matrix.
-    pub P_post: MatrixMN<F, DimX, DimX>,
+    pub P_post: OMatrix<F, DimX, DimX>,
     /// Last measurement
-    pub z: Option<VectorN<F, DimZ>>,
+    pub z: Option<OVector<F, DimZ>>,
     /// Measurement noise matrix.
-    pub R: MatrixMN<F, DimZ, DimZ>,
-    /// MatrixMN<F, DimZ, DimZ>,
-    pub Q: MatrixMN<F, DimX, DimX>,
+    pub R: OMatrix<F, DimZ, DimZ>,
+    /// OMatrix<F, DimZ, DimZ>,
+    pub Q: OMatrix<F, DimX, DimX>,
     /// Control transition matrix
-    pub B: Option<MatrixMN<F, DimX, DimU>>,
+    pub B: Option<OMatrix<F, DimX, DimU>>,
     /// State Transition matrix.
-    pub F: MatrixMN<F, DimX, DimX>,
+    pub F: OMatrix<F, DimX, DimX>,
     /// Measurement function.
-    pub H: MatrixMN<F, DimZ, DimX>,
+    pub H: OMatrix<F, DimZ, DimX>,
     /// Residual of the update step.
-    pub y: VectorN<F, DimZ>,
+    pub y: OVector<F, DimZ>,
     /// Kalman gain of the update step.
-    pub K: MatrixMN<F, DimX, DimZ>,
+    pub K: OMatrix<F, DimX, DimZ>,
     /// System uncertainty (P projected to measurement space).
-    pub S: MatrixMN<F, DimZ, DimZ>,
+    pub S: OMatrix<F, DimZ, DimZ>,
     /// Inverse system uncertainty.
-    pub SI: MatrixMN<F, DimZ, DimZ>,
+    pub SI: OMatrix<F, DimZ, DimZ>,
     /// Fading memory setting.
     pub alpha_sq: F,
 }
@@ -73,7 +73,7 @@ pub struct KalmanFilter<F, DimX, DimZ, DimU>
 #[allow(non_snake_case)]
 impl<F, DimX, DimZ, DimU> KalmanFilter<F, DimX, DimZ, DimU>
     where
-        F: RealField,
+        F: RealField + Copy,
         DimX: DimName,
         DimZ: DimName,
         DimU: DimName,
@@ -89,10 +89,10 @@ impl<F, DimX, DimZ, DimU> KalmanFilter<F, DimX, DimZ, DimU>
     /// Predict next state (prior) using the Kalman filter state propagation equations.
     pub fn predict(
         &mut self,
-        u: Option<&VectorN<F, DimU>>,
-        B: Option<&MatrixMN<F, DimX, DimU>>,
-        F: Option<&MatrixMN<F, DimX, DimX>>,
-        Q: Option<&MatrixMN<F, DimX, DimX>>,
+        u: Option<&OVector<F, DimU>>,
+        B: Option<&OMatrix<F, DimX, DimU>>,
+        F: Option<&OMatrix<F, DimX, DimX>>,
+        Q: Option<&OMatrix<F, DimX, DimX>>,
     ) {
         let B = if B.is_some() { B } else { self.B.as_ref() };
         let F = F.unwrap_or(&self.F);
@@ -113,9 +113,9 @@ impl<F, DimX, DimZ, DimU> KalmanFilter<F, DimX, DimZ, DimU>
     /// Add a new measurement (z) to the Kalman filter.
     pub fn update(
         &mut self,
-        z: &VectorN<F, DimZ>,
-        R: Option<&MatrixMN<F, DimZ, DimZ>>,
-        H: Option<&MatrixMN<F, DimZ, DimX>>,
+        z: &OVector<F, DimZ>,
+        R: Option<&OMatrix<F, DimZ, DimZ>>,
+        H: Option<&OMatrix<F, DimZ, DimX>>,
     ) {
         let R = R.unwrap_or(&self.R);
         let H = H.unwrap_or(&self.H);
@@ -131,7 +131,7 @@ impl<F, DimX, DimZ, DimU> KalmanFilter<F, DimX, DimZ, DimU>
 
         self.x = &self.x + &self.K * &self.y;
 
-        let I_KH = MatrixMN::<F, DimX, DimX>::identity() - &self.K * H;
+        let I_KH = OMatrix::<F, DimX, DimX>::identity() - &self.K * H;
         self.P =
             ((I_KH.clone() * &self.P) * I_KH.transpose()) + ((&self.K * R) * &self.K.transpose());
 
@@ -144,8 +144,8 @@ impl<F, DimX, DimZ, DimU> KalmanFilter<F, DimX, DimZ, DimU>
     /// Only x is updated, P is left unchanged.
     pub fn predict_steadystate(
         &mut self,
-        u: Option<&VectorN<F, DimU>>,
-        B: Option<&MatrixMN<F, DimX, DimU>>,
+        u: Option<&OVector<F, DimU>>,
+        B: Option<&OMatrix<F, DimX, DimU>>,
     ) {
         let B = if B.is_some() { B } else { self.B.as_ref() };
 
@@ -161,7 +161,7 @@ impl<F, DimX, DimZ, DimU> KalmanFilter<F, DimX, DimZ, DimU>
 
     /// Add a new measurement (z) to the Kalman filter without recomputing the Kalman gain K,
     /// the state covariance P, or the system uncertainty S.
-    pub fn update_steadystate(&mut self, z: &VectorN<F, DimZ>) {
+    pub fn update_steadystate(&mut self, z: &OVector<F, DimZ>) {
         self.y = z - &self.H * &self.x;
         self.x = &self.x + &self.K * &self.y;
 
@@ -173,8 +173,8 @@ impl<F, DimX, DimZ, DimU> KalmanFilter<F, DimX, DimZ, DimU>
     /// Predicts the next state of the filter and returns it without altering the state of the filter.
     pub fn get_prediction(
         &self,
-        u: Option<&VectorN<F, DimU>>,
-    ) -> (VectorN<F, DimX>, MatrixMN<F, DimX, DimX>) {
+        u: Option<&OVector<F, DimU>>,
+    ) -> (OVector<F, DimX>, OMatrix<F, DimX, DimX>) {
         let Q = &self.Q;
         let F = &self.F;
         let P = &self.P;
@@ -195,7 +195,7 @@ impl<F, DimX, DimZ, DimU> KalmanFilter<F, DimX, DimZ, DimU>
     }
 
     ///  Computes the new estimate based on measurement `z` and returns it without altering the state of the filter.
-    pub fn get_update(&self, z: &VectorN<F, DimZ>) -> (VectorN<F, DimX>, MatrixMN<F, DimX, DimX>) {
+    pub fn get_update(&self, z: &OVector<F, DimZ>) -> (OVector<F, DimX>, OMatrix<F, DimX, DimX>) {
         let R = &self.R;
         let H = &self.H;
         let P = &self.P;
@@ -212,7 +212,7 @@ impl<F, DimX, DimZ, DimU> KalmanFilter<F, DimX, DimZ, DimU>
 
         let x = x + K * y;
 
-        let I_KH = &(MatrixMN::<F, DimX, DimX>::identity() - (K * H));
+        let I_KH = &(OMatrix::<F, DimX, DimX>::identity() - (K * H));
 
         let P = ((I_KH * P) * I_KH.transpose()) + ((K * R) * &K.transpose());
 
@@ -220,12 +220,12 @@ impl<F, DimX, DimZ, DimU> KalmanFilter<F, DimX, DimZ, DimU>
     }
 
     /// Returns the residual for the given measurement (z). Does not alter the state of the filter.
-    pub fn residual_of(&self, z: &VectorN<F, DimZ>) -> VectorN<F, DimZ> {
+    pub fn residual_of(&self, z: &OVector<F, DimZ>) -> OVector<F, DimZ> {
         z - (&self.H * &self.x_prior)
     }
 
     /// Helper function that converts a state into a measurement.
-    pub fn measurement_of_state(&self, x: &VectorN<F, DimX>) -> VectorN<F, DimZ> {
+    pub fn measurement_of_state(&self, x: &OVector<F, DimX>) -> OVector<F, DimZ> {
         &self.H * x
     }
 }
@@ -248,20 +248,20 @@ impl<F, DimX, DimZ, DimU> Default for KalmanFilter<F, DimX, DimZ, DimU>
 {
     /// Returns a Kalman filter initialised with default parameters.
     fn default() -> Self {
-        let x = VectorN::<F, DimX>::from_element(F::one());
-        let P = MatrixMN::<F, DimX, DimX>::identity();
-        let Q = MatrixMN::<F, DimX, DimX>::identity();
-        let F = MatrixMN::<F, DimX, DimX>::identity();
-        let H = MatrixMN::<F, DimZ, DimX>::from_element(F::zero());
-        let R = MatrixMN::<F, DimZ, DimZ>::identity();
+        let x = OVector::<F, DimX>::from_element(F::one());
+        let P = OMatrix::<F, DimX, DimX>::identity();
+        let Q = OMatrix::<F, DimX, DimX>::identity();
+        let F = OMatrix::<F, DimX, DimX>::identity();
+        let H = OMatrix::<F, DimZ, DimX>::from_element(F::zero());
+        let R = OMatrix::<F, DimZ, DimZ>::identity();
         let alpha_sq = F::one();
 
         let z = None;
 
-        let K = MatrixMN::<F, DimX, DimZ>::from_element(F::zero());
-        let y = VectorN::<F, DimZ>::from_element(F::one());
-        let S = MatrixMN::<F, DimZ, DimZ>::from_element(F::zero());
-        let SI = MatrixMN::<F, DimZ, DimZ>::from_element(F::zero());
+        let K = OMatrix::<F, DimX, DimZ>::from_element(F::zero());
+        let y = OVector::<F, DimZ>::from_element(F::one());
+        let S = OMatrix::<F, DimZ, DimZ>::from_element(F::zero());
+        let SI = OMatrix::<F, DimZ, DimZ>::from_element(F::zero());
 
         let x_prior = x.clone();
         let P_prior = P.clone();
